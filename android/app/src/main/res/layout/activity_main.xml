@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="8dp"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/nodes_heading"
+        android:textStyle="bold" />
+
+    <ListView
+        android:id="@+id/nodes"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:choiceMode="singleChoice" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/add_node"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/add_node" />
+
+        <Button
+            android:id="@+id/edit_node"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/edit_node" />
+
+        <Button
+            android:id="@+id/delete_node"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/delete_node" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:text="@string/route_heading"
+        android:textStyle="bold" />
+
+    <RadioGroup
+        android:id="@+id/routing"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/route_global"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/route_global" />
+
+        <RadioButton
+            android:id="@+id/route_cn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/route_cn" />
+
+        <RadioButton
+            android:id="@+id/route_gfw"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/route_gfw" />
+    </RadioGroup>
+
+    <Button
+        android:id="@+id/connect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/connect" />
+</LinearLayout>

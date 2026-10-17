@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="nodes_heading">Nodes</string>
+    <string name="route_heading">Route</string>
+    <string name="add_node">Add</string>
+    <string name="edit_node">Edit</string>
+    <string name="delete_node">Delete</string>
+    <string name="route_global">Global — everything through the node</string>
+    <string name="route_cn">CN whitelist — mainland domains direct</string>
+    <string name="route_gfw">GFW blacklist — non-mainland via node</string>
+    <string name="node_title">Node</string>
+    <string name="field_name">Name</string>
+    <string name="field_protocol">Protocol</string>
+    <string name="field_server">Server</string>
+    <string name="field_port">Port</string>
+    <string name="field_secret">Secret (UUID / password)</string>
+    <string name="field_transport">Transport</string>
+    <string name="field_path">Path</string>
+    <string name="field_authority">Authority (Host SNI)</string>
+    <string name="field_padding">Padding</string>
+</resources>
