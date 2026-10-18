@@ -3,6 +3,7 @@ package icu.wwr.badproxy
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -257,7 +258,23 @@ class MainActivity : Activity() {
             toast("Add and select a node first")
             return
         }
-        BpVpnService.requestNotificationPermission(this)
+        // Both prompts are system dialogs started with startActivityForResult,
+        // so they must run one after the other: asking for the notification
+        // permission while the VPN consent dialog is in flight swallows the
+        // consent result and the tunnel never starts.
+        if (needsNotificationPermission()) {
+            requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), REQ_NOTIF)
+            return
+        }
+        requestVpnConsent()
+    }
+
+    private fun needsNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission("android.permission.POST_NOTIFICATIONS") !=
+            PackageManager.PERMISSION_GRANTED
+
+    private fun requestVpnConsent() {
         val prep = VpnService.prepare(this)
         if (prep != null) {
             startActivityForResult(prep, REQ_VPN)
@@ -296,8 +313,20 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Whether notifications were allowed or not makes no difference to the
+        // tunnel; only its notification would be hidden. Carry on either way.
+        if (requestCode == REQ_NOTIF) requestVpnConsent()
+    }
+
     companion object {
         private const val REQ_VPN = 1
+        private const val REQ_NOTIF = 2
         private const val TICK_MS = 1000L
     }
 }

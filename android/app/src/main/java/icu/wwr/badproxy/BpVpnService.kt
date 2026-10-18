@@ -1,6 +1,5 @@
 package icu.wwr.badproxy
 
-import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,6 +14,8 @@ import vpn.Vpn
 
 class BpVpnService : VpnService() {
 
+    private var sessionLabel: String? = null
+
     override fun onBind(intent: Intent?): IBinder? = super.onBind(intent)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -22,19 +23,25 @@ class BpVpnService : VpnService() {
             ACTION_STOP -> stopTunnel()
             ACTION_CONNECT -> {
                 val cfg = intent.getStringExtra(EXTRA_CONFIG)
-                if (cfg != null) startTunnel(cfg, intent.getStringExtra(EXTRA_LABEL)) else stopSelf()
+                if (cfg != null) startTunnel(cfg, intent.getStringExtra(EXTRA_LABEL)) else stopTunnel()
             }
-            else -> stopSelf()
+            // On the first connection the framework starts this service itself
+            // (action android.net.VpnService, from the consent dialog) and that
+            // start can land after we have already established the tunnel.
+            // Stopping there tears down the VPN the user just approved, so any
+            // start we do not recognise keeps the running tunnel alive.
+            else -> if (Vpn.running()) promote() else stopSelf()
         }
         return START_NOT_STICKY
     }
 
     private fun startTunnel(cfgJson: String, label: String?) {
         if (Vpn.running()) return
+        sessionLabel = label
         // The tunnel is a long-lived user-visible feature: run it as a
         // foreground service (also what keeps the process alive once the
         // activity goes away on newer Android).
-        startForeground(NOTIF_ID, buildNotification(label))
+        promote()
         val pfd = try {
             Builder()
                 .setSession("Bad Proxy")
@@ -71,6 +78,10 @@ class BpVpnService : VpnService() {
             Log.e(TAG, "engine start failed", e)
             stopTunnel()
         }
+    }
+
+    private fun promote() {
+        startForeground(NOTIF_ID, buildNotification(sessionLabel))
     }
 
     private fun stopTunnel() {
@@ -145,15 +156,6 @@ class BpVpnService : VpnService() {
                 ctx.startForegroundService(intent)
             } else {
                 ctx.startService(intent)
-            }
-        }
-
-        fun requestNotificationPermission(activity: Activity) {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS") !=
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
-                activity.requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 2)
             }
         }
 
