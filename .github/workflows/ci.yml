@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Engine tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bad-proxy-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # go.mod replaces bad-proxy-core with ../bad-proxy-core, so the two
+          # repos are checked out as siblings.
+          path: bad-proxy-android
+      - uses: actions/checkout@v4
+        with:
+          repository: wwricu/bad-proxy-core
+          path: bad-proxy-core
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: bad-proxy-android/go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bad-proxy-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: bad-proxy-android
+      - uses: actions/checkout@v4
+        with:
+          repository: wwricu/bad-proxy-core
+          path: bad-proxy-core
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platforms;android-36
+            build-tools;35.0.0
+            ndk;27.2.12479018
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install gomobile
+        run: |
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          ver=$(go list -m -f '{{.Version}}' golang.org/x/mobile)
+          go install "golang.org/x/mobile/cmd/gomobile@$ver"
+      # Separate step: ANDROID_NDK_HOME above only reaches the next step.
+      - run: gomobile init
+      - run: ./build.sh debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: bad-proxy-android/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

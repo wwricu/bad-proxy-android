@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Signed APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bad-proxy-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: bad-proxy-android
+      - uses: actions/checkout@v4
+        with:
+          repository: wwricu/bad-proxy-core
+          path: bad-proxy-core
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platforms;android-36
+            build-tools;35.0.0
+            ndk;27.2.12479018
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install gomobile
+        run: |
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          ver=$(go list -m -f '{{.Version}}' golang.org/x/mobile)
+          go install "golang.org/x/mobile/cmd/gomobile@$ver"
+      - run: gomobile init
+      - name: Unpack upload key
+        env:
+          KEY_B64: ${{ secrets.BP_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEY_B64" ]; then
+            echo "BP_KEYSTORE_BASE64 is not set; releases need the upload key." >&2
+            exit 1
+          fi
+          printf '%s' "$KEY_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      - name: Build
+        env:
+          BP_KEYSTORE: ${{ runner.temp }}/release.keystore
+          BP_KEYSTORE_PASSWORD: ${{ secrets.BP_KEYSTORE_PASSWORD }}
+        run: ./build.sh release
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd android/app/build/outputs/apk/release
+          mv app-release.apk "BadProxy-$TAG.apk"
+          gh release create "$TAG" "BadProxy-$TAG.apk" \
+            --title "$TAG" --generate-notes

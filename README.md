@@ -22,14 +22,34 @@ apps -> tun0 (VpnService) -> gvisor netstack (tun2socks) -> SOCKS5 127.0.0.1
 
 ## Build
 
-    ./build.sh
+    ./build.sh            # debug APK
+    ./build.sh release    # release APK
 
-Produces `android/app/build/outputs/apk/debug/app-debug.apk`. See the header of
-`build.sh` for the toolchain it expects, and point
-`android/gradle.properties:org.gradle.java.home` at your own JDK (it is the
-Android Studio bundle on the machine this was developed on).
-`go.mod` replaces core with `../bad-proxy-core`, so keep the two checkouts side
-by side.
+Produces `android/app/build/outputs/apk/<type>/app-<type>.apk`. See the header
+of `build.sh` for the toolchain it expects. `go.mod` replaces core with
+`../bad-proxy-core`, so keep the two checkouts side by side.
+
+Gradle picks its JDK from `JAVA_HOME`, or from `org.gradle.java.home` in
+`~/.gradle/gradle.properties` if you want a machine-local override (that is
+where the Android Studio JBR path belongs — keeping it out of the repo is what
+lets CI run).
+
+## CI and releases
+
+* `.github/workflows/ci.yml` runs on every push and PR: `go vet` + `go test`
+  for the engine, then a real `gomobile` + Gradle build of the debug APK,
+  uploaded as a workflow artifact.
+* `.github/workflows/release.yml` runs on a `v*` tag: it builds the signed
+  release APK and publishes it as a GitHub Release.
+
+The release is signed with a stable upload key kept outside git, in the
+`BP_KEYSTORE_BASE64` and `BP_KEYSTORE_PASSWORD` repository secrets (alias
+`badproxy`). Without it the release build falls back to the debug key, which
+differs per machine — those APKs cannot upgrade each other. Back the keystore
+up: losing it means every installed app has to be reinstalled.
+
+Version numbers live in `android/app/build.gradle.kts`; the tag is only used
+for the release name, so bump `versionCode`/`versionName` before tagging.
 
 ## Routing modes
 
@@ -54,7 +74,11 @@ unpacked from assets on first run.
   apps on v6-only paths bypass the tunnel.
 * Clients that resolve by themselves (browser DoH/DoQ) hand us a bare IP, which
   matches no domain rule and therefore takes the mode's default outbound.
-* On the Android emulator, connections that *bypass* the tunnel (the direct
-  half of the two split modes) do not complete: the SYN leaves on the physical
-  interface and the reply is dropped by the emulator's ingress path. The
-  routing decision itself is verifiable there, the direct transfer is not.
+
+### Emulator note
+
+Not an app bug, but it will waste an hour: after enough VPN connect/disconnect
+cycles the Android emulator leaks network state and *every* socket the app opens
+outside the tunnel fails, including a plain `java.net.Socket`. `adb reboot`
+clears it. If the direct half of a split mode suddenly stops working, restart
+the emulator before debugging.
