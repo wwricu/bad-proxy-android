@@ -21,6 +21,7 @@ class State {
     val nodes = mutableListOf<Node>()
     var active = -1
     var routingMode = "global"
+    var autoConnect = false
 }
 
 // Prefs persists the app state as the same JSON schema the Go engine and the
@@ -53,6 +54,7 @@ class Prefs(ctx: Context) {
                 }
                 state.active = o.optInt("active", if (state.nodes.isEmpty()) -1 else 0)
                 state.routingMode = o.optString("routing_mode", "global")
+                state.autoConnect = o.optBoolean("auto_connect", false)
             } catch (_: Exception) {
                 // a corrupt state file must not brick the app; start clean
             }
@@ -63,21 +65,11 @@ class Prefs(ctx: Context) {
     }
 
     fun save() {
-        val arr = JSONArray()
-        for (n in state.nodes) {
-            arr.put(
-                JSONObject()
-                    .put("name", n.name).put("protocol", n.protocol)
-                    .put("server", n.server).put("port", n.port)
-                    .put("secret", n.secret).put("transport", n.transport)
-                    .put("path", n.path).put("authority", n.authority)
-                    .put("padding", n.padding)
-            )
-        }
         val o = JSONObject()
-            .put("nodes", arr)
+            .put("nodes", nodesJson())
             .put("active", state.active)
             .put("routing_mode", state.routingMode)
+            .put("auto_connect", state.autoConnect)
         sp.edit().putString("json", o.toString()).apply()
     }
 
@@ -92,8 +84,11 @@ class Prefs(ctx: Context) {
         }
     }
 
-    fun vpnConfigJson(filesDir: File): String {
-        val o = JSONObject(vpnConfigObject())
+    fun vpnConfigJson(filesDir: File, active: Int = state.active): String {
+        val o = JSONObject()
+            .put("nodes", nodesJson())
+            .put("active", active)
+            .put("routing_mode", state.routingMode)
         o.put("rules_path", File(filesDir, "rules.dat").absolutePath)
         // The engine's stdout never reaches logcat and TMPDIR is not writable
         // by the app, so the log path is decided here, in the one place that
@@ -102,7 +97,7 @@ class Prefs(ctx: Context) {
         return o.toString()
     }
 
-    private fun vpnConfigObject(): String {
+    private fun nodesJson(): JSONArray {
         val arr = JSONArray()
         for (n in state.nodes) {
             arr.put(
@@ -114,10 +109,6 @@ class Prefs(ctx: Context) {
                     .put("padding", n.padding)
             )
         }
-        return JSONObject()
-            .put("nodes", arr)
-            .put("active", state.active)
-            .put("routing_mode", state.routingMode)
-            .toString()
+        return arr
     }
 }

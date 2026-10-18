@@ -52,16 +52,23 @@
             android:layout_height="wrap_content"
             android:inputType="number" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/field_secret" />
-
-        <EditText
-            android:id="@+id/secret_input"
+        <LinearLayout
+            android:id="@+id/row_secret"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textVisiblePassword" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/field_secret" />
+
+            <EditText
+                android:id="@+id/secret_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textVisiblePassword" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -73,37 +80,66 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/field_path" />
-
-        <EditText
-            android:id="@+id/path_input"
+        <LinearLayout
+            android:id="@+id/row_authority"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/field_authority" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/field_authority" />
 
-        <EditText
-            android:id="@+id/authority_input"
+            <EditText
+                android:id="@+id/authority_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_path"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textUri" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/field_padding" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/field_path" />
 
-        <EditText
-            android:id="@+id/padding_input"
+            <EditText
+                android:id="@+id/path_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_padding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/field_padding" />
+
+            <EditText
+                android:id="@+id/padding_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/form_msg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:textColor="#c62828"
+            android:textSize="14sp" />
     </LinearLayout>
 </ScrollView>

@@ -1,16 +1,24 @@
 package icu.wwr.badproxy
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
-import android.widget.ArrayAdapter
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.ListView
-import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import vpn.Vpn
 
 class MainActivity : Activity() {
 
@@ -18,7 +26,14 @@ class MainActivity : Activity() {
     private lateinit var nodesList: ListView
     private lateinit var routing: RadioGroup
     private lateinit var connectBtn: Button
+    private lateinit var tunnelTest: Button
+    private lateinit var autoConnect: CheckBox
     private lateinit var status: TextView
+    private lateinit var nodesAdapter: NodesAdapter
+
+    // Per-node latency results from the last manual test, index -> chip text
+    // ("12ms" / "Testing…" / "Failed"), same lifecycle as the desktop chip.
+    private val latency = mutableMapOf<Int, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +42,8 @@ class MainActivity : Activity() {
         nodesList = findViewById(R.id.nodes)
         routing = findViewById(R.id.routing)
         connectBtn = findViewById(R.id.connect)
+        tunnelTest = findViewById(R.id.tunnel_test)
+        autoConnect = findViewById(R.id.auto_connect)
         status = findViewById(R.id.status)
 
         routing.check(
@@ -45,37 +62,32 @@ class MainActivity : Activity() {
             prefs.save()
         }
 
+        nodesAdapter = NodesAdapter()
+        nodesList.adapter = nodesAdapter
         nodesList.setOnItemClickListener { _, _, pos, _ ->
             prefs.state.active = pos
             prefs.save()
             refresh()
         }
+        nodesList.setOnItemLongClickListener { _, _, pos, _ ->
+            nodeMenu(pos)
+            true
+        }
+
         findViewById<Button>(R.id.add_node).setOnClickListener {
             NodeDialog(this) { node ->
                 prefs.state.nodes.add(node)
                 prefs.state.active = prefs.state.nodes.size - 1
                 prefs.save()
+                latency.clear()
                 refresh()
             }.show()
         }
-        findViewById<Button>(R.id.edit_node).setOnClickListener {
-            val i = prefs.state.active
-            if (i in prefs.state.nodes.indices) {
-                NodeDialog(this) { node ->
-                    prefs.state.nodes[i] = node
-                    prefs.save()
-                    refresh()
-                }.show(prefs.state.nodes[i])
-            }
-        }
-        findViewById<Button>(R.id.delete_node).setOnClickListener {
-            val i = prefs.state.active
-            if (i in prefs.state.nodes.indices) {
-                prefs.state.nodes.removeAt(i)
-                prefs.state.active = if (prefs.state.nodes.isEmpty()) -1 else 0
-                prefs.save()
-                refresh()
-            }
+        tunnelTest.setOnClickListener { testTunnel() }
+        autoConnect.isChecked = prefs.state.autoConnect
+        autoConnect.setOnCheckedChangeListener { _, checked ->
+            prefs.state.autoConnect = checked
+            prefs.save()
         }
 
         connectBtn.setOnClickListener {
@@ -100,7 +112,7 @@ class MainActivity : Activity() {
     }
 
     private var visible = false
-    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() {
             // A callback can still be in flight across a pause (the VPN
@@ -112,34 +124,140 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun nodeMenu(pos: Int) {
+        val labels = arrayOf(getText(R.string.test_node), getText(R.string.edit_node), getText(R.string.delete_node))
+        AlertDialog.Builder(this)
+            .setTitle(prefs.state.nodes[pos].name)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> testNode(pos)
+                    1 -> editNode(pos)
+                    2 -> confirmDelete(pos)
+                }
+            }
+            .show()
+    }
+
+    private fun editNode(pos: Int) {
+        NodeDialog(this) { node ->
+            prefs.state.nodes[pos] = node
+            prefs.save()
+            latency.remove(pos)
+            refresh()
+        }.show(prefs.state.nodes[pos])
+    }
+
+    private fun confirmDelete(pos: Int) {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.confirm_delete)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                prefs.state.nodes.removeAt(pos)
+                prefs.state.active = if (prefs.state.nodes.isEmpty()) -1 else 0.coerceAtMost(pos)
+                prefs.save()
+                latency.clear()
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    // testNode mirrors the desktop TestNode: throwaway engine, node as the
+    // only outbound, real 204 request; the binding call blocks up to its
+    // timeout, so it runs off the main thread and lands back on it.
+    private fun testNode(pos: Int) {
+        if (latency[pos] == getString(R.string.testing)) return
+        latency[pos] = getString(R.string.testing)
+        nodesAdapter.notifyDataSetChanged()
+        val cfg = prefs.vpnConfigJson(filesDir, pos)
+        Thread {
+            val result = try {
+                Vpn.testNode(cfg)
+            } catch (e: Exception) {
+                android.util.Log.w("BpTest", "testNode failed", e)
+                handler.post { toast("Test failed: ${e.message}") }
+                "Failed"
+            }
+            handler.post {
+                latency[pos] = result
+                nodesAdapter.notifyDataSetChanged()
+            }
+        }.start()
+    }
+
+    private fun testTunnel() {
+        tunnelTest.isEnabled = false
+        Thread {
+            val result = try {
+                "tunnel " + Vpn.testConnection()
+            } catch (e: Exception) {
+                android.util.Log.w("BpTest", "testConnection failed", e)
+                "tunnel failed: ${e.message}"
+            }
+            handler.post {
+                tunnelTest.isEnabled = true
+                toast(result)
+            }
+        }.start()
+    }
+
+    private fun toast(text: String) {
+        Toast.makeText(this, text, Toast.LENGTH_LONG).show()
+    }
+
     private fun refresh() {
-        val labels = prefs.state.nodes.mapIndexed { i, n ->
-            val star = if (i == prefs.state.active) "* " else "  "
-            "$star${n.name}  (${n.protocol}@${n.server}:${n.port})"
-        }
-        nodesList.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_single_choice, labels)
-        nodesList.choiceMode = ListView.CHOICE_MODE_SINGLE
-        if (prefs.state.active in prefs.state.nodes.indices) {
-            nodesList.setItemChecked(prefs.state.active, true)
-        }
+        nodesAdapter.notifyDataSetChanged()
         refreshStatus()
     }
 
     private fun refreshStatus() {
         val running = BpVpnService.isRunning()
         connectBtn.setText(if (running) R.string.disconnect else R.string.connect)
+        tunnelTest.visibility = if (running) View.VISIBLE else View.GONE
+        val active = prefs.state.active.takeIf { it in prefs.state.nodes.indices }
+        val route = when (prefs.state.routingMode) {
+            "cn-whitelist" -> "CN whitelist"
+            "gfw-blacklist" -> "GFW blacklist"
+            else -> "Global"
+        }
         status.text = when {
-            running -> "VPN connected"
+            running -> buildString {
+                append("Connected")
+                active?.let { append(" · ").append(prefs.state.nodes[it].name) }
+                append(" · ").append(route)
+            }
             BpVpnService.lastError().isNotEmpty() -> "Failed: " + BpVpnService.lastError()
-            else -> "Idle"
+            else -> "Idle · ${route}"
+        }
+    }
+
+    private inner class NodesAdapter : BaseAdapter() {
+        override fun getCount() = prefs.state.nodes.size
+        override fun getItem(position: Int) = prefs.state.nodes[position]
+        override fun getItemId(position: Int) = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val v = convertView ?: LayoutInflater.from(this@MainActivity)
+                .inflate(R.layout.node_row, parent, false)
+            val n = prefs.state.nodes[position]
+            v.findViewById<TextView>(R.id.node_name).text = n.name
+            v.findViewById<TextView>(R.id.node_summary).text =
+                "${n.protocol}://${n.server}:${n.port} · ${n.transport}"
+            v.findViewById<TextView>(R.id.node_latency).text = latency[position] ?: ""
+            // The desktop list highlights the active row; do the same instead
+            // of relying on ListView choice mode with a custom adapter.
+            v.setBackgroundColor(
+                if (position == prefs.state.active) 0xFFE8F0FE.toInt() else 0x00000000
+            )
+            return v
         }
     }
 
     private fun connect() {
         if (prefs.state.active !in prefs.state.nodes.indices) {
-            Toast.makeText(this, "Add and select a node first", Toast.LENGTH_LONG).show()
+            toast("Add and select a node first")
             return
         }
+        BpVpnService.requestNotificationPermission(this)
         val prep = VpnService.prepare(this)
         if (prep != null) {
             startActivityForResult(prep, REQ_VPN)
@@ -153,13 +271,17 @@ class MainActivity : Activity() {
         val svc = Intent(this, BpVpnService::class.java).apply {
             action = BpVpnService.ACTION_CONNECT
             putExtra(BpVpnService.EXTRA_CONFIG, prefs.vpnConfigJson(filesDir))
+            prefs.state.active.takeIf { it in prefs.state.nodes.indices }?.let {
+                putExtra(BpVpnService.EXTRA_LABEL, prefs.state.nodes[it].name)
+            }
         }
-        startService(svc)
+        BpVpnService.startServiceForeground(this, svc)
         refresh()
     }
 
     private fun disconnect() {
-        startService(
+        BpVpnService.startServiceForeground(
+            this,
             Intent(this, BpVpnService::class.java).apply { action = BpVpnService.ACTION_STOP }
         )
         refresh()
@@ -170,7 +292,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_VPN) {
             if (resultCode == RESULT_OK) startVpn()
-            else Toast.makeText(this, "VPN permission denied", Toast.LENGTH_LONG).show()
+            else toast("VPN permission denied")
         }
     }
 
