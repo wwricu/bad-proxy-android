@@ -12,6 +12,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The engine builds against core's development branch; master still has the
+  # old package layout (proxy/structure) and no core or logger package.
+  CORE_REF: dev
+
 jobs:
   go:
     name: Engine tests
@@ -28,10 +33,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wwricu/bad-proxy-core
+          ref: ${{ env.CORE_REF }}
           path: bad-proxy-core
       - uses: actions/setup-go@v5
         with:
           go-version-file: bad-proxy-android/go.mod
+          cache-dependency-path: bad-proxy-android/go.sum
       - run: go vet ./...
       - run: go test ./...
 
@@ -48,7 +55,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wwricu/bad-proxy-core
+          ref: ${{ env.CORE_REF }}
           path: bad-proxy-core
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: bad-proxy-android/go.mod
+          cache-dependency-path: bad-proxy-android/go.sum
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

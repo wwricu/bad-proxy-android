@@ -27,7 +27,8 @@ apps -> tun0 (VpnService) -> gvisor netstack (tun2socks) -> SOCKS5 127.0.0.1
 
 Produces `android/app/build/outputs/apk/<type>/app-<type>.apk`. See the header
 of `build.sh` for the toolchain it expects. `go.mod` replaces core with
-`../bad-proxy-core`, so keep the two checkouts side by side.
+`../bad-proxy-core`, so keep the two checkouts side by side (core's `dev`
+branch, which is what CI pins — `master` still has the old package layout).
 
 Gradle picks its JDK from `JAVA_HOME`, or from `org.gradle.java.home` in
 `~/.gradle/gradle.properties` if you want a machine-local override (that is
