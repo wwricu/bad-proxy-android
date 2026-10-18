@@ -21,10 +21,12 @@ esac
 API=24
 ASSETS=android/app/src/main/assets
 RULES=$ASSETS/rules.dat
+LIBS=android/app/libs
 
 # arm64 for devices, amd64 (x86_64) for emulators on dev hosts.
+mkdir -p "$LIBS"
 gomobile bind -target=android/arm64,android/amd64 -androidapi "$API" \
-  -o android/app/libs/vpn.aar ./vpn
+  -o "$LIBS/vpn.aar" ./vpn
 
 # The routing dataset is not in git; the app unpacks it from assets on first
 # run, so a missing file means split routing silently degrades to "all direct".

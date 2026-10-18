@@ -40,6 +40,13 @@ jobs:
           go-version-file: bad-proxy-android/go.mod
           cache-dependency-path: bad-proxy-android/go.sum
       - run: go vet ./...
+      # The routing tests read the same dataset the APK bundles; without it
+      # they skip, and a CI run that skips them proves nothing.
+      - name: Download rules.dat
+        run: >-
+          curl -fsSL --create-dirs -o android/app/src/main/assets/rules.dat
+          https://github.com/wwricu/domain-list-community/releases/latest/download/rules.dat
+      - run: go test -v ./vpn -run Decisions
       - run: go test ./...
 
   apk:

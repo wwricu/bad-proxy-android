@@ -1,6 +1,7 @@
 package vpn
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -9,12 +10,16 @@ import (
 
 // rules.dat ships in the APK assets and is unpacked to filesDir at runtime;
 // the split modes' decisions are only as good as the dataset wired into
-// buildCoreConfig, so exercise the real one.
+// buildCoreConfig, so exercise the real one. It is downloaded by build.sh
+// rather than committed, so a checkout that never built cannot run this.
 func realRules(t *testing.T) string {
 	t.Helper()
 	p, err := filepath.Abs(filepath.Join("..", "android", "app", "src", "main", "assets", "rules.dat"))
 	if err != nil {
-		t.Skip("rules.dat not available:", err)
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Skip("rules.dat missing, run ./build.sh first:", err)
 	}
 	return p
 }
