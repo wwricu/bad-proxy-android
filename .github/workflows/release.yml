@@ -71,5 +71,8 @@ jobs:
         run: |
           cd android/app/build/outputs/apk/release
           mv app-release.apk "BadProxy-$TAG.apk"
+          # v0.0.1-beta-1 and friends are not stable; GitHub should say so.
+          set --
+          case "$TAG" in *-*) set -- --prerelease ;; esac
           gh release create "$TAG" "BadProxy-$TAG.apk" \
-            --title "$TAG" --generate-notes
+            --title "$TAG" --notes-file "$GITHUB_WORKSPACE/bad-proxy-android/RELEASE_NOTES.md" "$@"

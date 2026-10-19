@@ -41,7 +41,9 @@ lets CI run).
   for the engine, then a real `gomobile` + Gradle build of the debug APK,
   uploaded as a workflow artifact.
 * `.github/workflows/release.yml` runs on a `v*` tag: it builds the signed
-  release APK and publishes it as a GitHub Release.
+  release APK and publishes it as a GitHub Release. The body comes from
+  `RELEASE_NOTES.md`, so update that file with the release; a tag with a dash
+  in it (`v0.0.1-beta-1`) is published as a prerelease.
 
 The release is signed with a stable upload key kept outside git, in the
 `BP_KEYSTORE_BASE64` and `BP_KEYSTORE_PASSWORD` repository secrets (alias
